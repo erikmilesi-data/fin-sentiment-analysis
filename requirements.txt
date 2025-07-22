@@ -1,0 +1,11 @@
+requests
+pandas
+yfinance
+feedparser
+beautifulsoup4
+langdetect
+tqdm
+ipywidgets
+lxml
+html5lib
+notebook
