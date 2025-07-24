@@ -1,11 +1,10 @@
-# 📊 Sentiment Analyzer for Stock Markets
+# 📊 Sentiment Analysis for the Stock Market
 
-An interactive tool for analyzing the sentiment of financial assets from multiple news sources. It quickly evaluates market sentiment for stocks in the Ibovespa, S&P 500, and Nasdaq using machine learning algorithms.
-
+Interactive and automated tool for analyzing the sentiment of financial assets based on multiple news sources. The system quickly evaluates market sentiment (positive, neutral, or negative) for stocks listed on the Ibovespa, S&P 500, and Nasdaq, using machine learning and natural language processing.
 
 ## 🚀 Features
 
-✅ Fetch and analyze news from:
+✅ News collection and sentiment analysis from multiple sources:
 - Yahoo Finance
 - Google News
 - Reuters
@@ -18,16 +17,21 @@ An interactive tool for analyzing the sentiment of financial assets from multipl
 - Neutral
 - Negative
 
-✅ Interactive interface in Jupyter Notebook with:
-- 🌎 Universe selection (Ibovespa, S&P 500, Nasdaq)
-- 📰 News source selection
-- 🏆 Top K results
+✅ Automatic translation to English to ensure compatibility with FinBERT
+
+✅ Interactive Jupyter Notebook interface:
+- 🌎 Select market universe (Ibovespa, S&P 500, Nasdaq)
+- 📰 Choose news sources
+- 🏆 Define Top K assets by sentiment
+- 💾 Export results as `.csv`
+
+---
 
 ## ⚙️ Installation
 
-Clone the repository and install dependencies:
+Clone the repository and install the dependencies:
 
 ```bash
-git clone https://github.com/erikmilesi-data/sentiment-analyzer.git
-cd sentiment-analyzer
+git clone https://github.com/erikmilesi-data/fin-sentiment-analysis.git
+cd fin-sentiment-analysis
 pip install -r requirements.txt
