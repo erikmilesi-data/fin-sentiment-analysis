@@ -1,3 +1,4 @@
+# Versão atualizada com todos os ajustes solicitados no código de análise de sentimento com FinBERT
 import requests
 import pandas as pd
 import yfinance as yf
@@ -8,15 +9,29 @@ import csv
 import io
 from bs4 import BeautifulSoup
 from langdetect import detect, LangDetectException
-from tqdm.notebook import tqdm  # Barra de progresso amigável para Jupyter
+from tqdm.notebook import tqdm
 import ipywidgets as widgets
 from IPython.display import display, clear_output
+from deep_translator import GoogleTranslator
+from transformers import pipeline
 
-# ───────── UNIVERSOS ─────────
+# Tradutor
+def traduzir_pt_para_en(text):
+    try:
+        return GoogleTranslator(source='auto', target='en').translate(text)
+    except Exception as e:
+        print(f"⚠️ Erro na tradução: {e}")
+        return text
+
+# FinBERT carregado uma vez
+finbert_pipe = pipeline("sentiment-analysis", model="yiyanghkust/finbert-tone")
+def _pipe_finbert(text):
+    return finbert_pipe(text)
+
+# Universos
 def universe_ibov():
     hdr = {"User-Agent": "Mozilla/5.0"}
-    url = ("https://sistemaswebb3-listados.b3.com.br/"
-           "listedCompaniesPage/getIbovespaConstituents?language=pt-br")
+    url = "https://sistemaswebb3-listados.b3.com.br/listedCompaniesPage/getIbovespaConstituents?language=pt-br"
     try:
         r = requests.get(url, headers=hdr, timeout=15)
         if r.headers.get("Content-Type", "").startswith("application/json"):
@@ -33,28 +48,28 @@ def universe_sp500():
     w = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
     soup = BeautifulSoup(requests.get(w, timeout=30).text, "lxml")
     tbl = soup.find("table", id="constituents")
-    return [tr.find_all("td")[0].text.strip().replace(".", "-")
-            for tr in tbl.find_all("tr")[1:]]
+    return [tr.find_all("td")[0].text.strip().replace(".", "-") for tr in tbl.find_all("tr")[1:]]
 
 def universe_nasdaq():
-    url = ("https://old.nasdaq.com/screening/"
-           "companies-by-industry.aspx?exchange=NASDAQ&render=download")
+    url = "https://old.nasdaq.com/screening/companies-by-industry.aspx?exchange=NASDAQ&render=download"
     rdr = csv.DictReader(io.StringIO(requests.get(url, timeout=30).text))
     return [row["Symbol"] for row in rdr]
 
 UNIVERSE_MAP = {"ibov": universe_ibov, "sp500": universe_sp500, "nasdaq": universe_nasdaq}
 
-# ───────── NOTÍCIAS ─────────
+# Notícias
+def company_name(tkr):
+    try:
+        info = yf.Ticker(tkr).info
+        return info.get("shortName") or info.get("longName") or tkr
+    except Exception:
+        return tkr
+
 def news_yf(tkr, n=60):
     try:
-        ticker_obj = yf.Ticker(tkr)
-        items = ticker_obj.news or []
-    except Exception as e:
-        if "404" in str(e):
-            print(f"⚠️ Yahoo Finance: ticker {tkr} não encontrado. Pulando...")
-        else:
-            print(f"⚠️ Erro no Yahoo Finance para {tkr}: {e}")
-        return []  # Retorna lista vazia para continuar
+        items = yf.Ticker(tkr).news or []
+    except Exception:
+        return []
     hd = []
     for it in items:
         tx = it.get("title") or it.get("headline") or it.get("summary")
@@ -64,19 +79,10 @@ def news_yf(tkr, n=60):
             break
     return hd
 
-
-def company_name(tkr):
-    try:
-        info = yf.Ticker(tkr).info
-        return info.get("shortName") or info.get("longName") or tkr
-    except Exception:
-        return tkr
-
 def news_google(tkr, n=60):
     name = company_name(tkr)
     q = requests.utils.quote(f'"{name}" OR "{tkr}"')
-    url = (f"https://news.google.com/rss/search?q={q}"
-           f"&hl=pt-BR&gl=BR&ceid=BR:pt-419")
+    url = f"https://news.google.com/rss/search?q={q}&hl=pt-BR&gl=BR&ceid=BR:pt-419"
     feed = feedparser.parse(url)
     return [html.unescape(re.sub(r"\s+", " ", e.title)) for e in feed.entries[:n]]
 
@@ -98,10 +104,8 @@ def news_investing(tkr, n=60):
         url = f"https://www.investing.com/search/?q={tkr}"
         resp = requests.get(url, headers=hdr, timeout=10)
         soup = BeautifulSoup(resp.text, "html.parser")
-        headlines = [a.get_text(strip=True) for a in soup.select(".js-inner-all-results-quote-item .title")]
-        return headlines[:n]
-    except Exception as e:
-        print(f"⚠️ Erro ao buscar Investing.com para {tkr}: {e}")
+        return [a.get_text(strip=True) for a in soup.select(".js-inner-all-results-quote-item .title")][:n]
+    except Exception:
         return []
 
 def news_finviz(tkr, n=60):
@@ -110,10 +114,8 @@ def news_finviz(tkr, n=60):
         url = f"https://finviz.com/quote.ashx?t={tkr}"
         resp = requests.get(url, headers=hdr, timeout=10)
         soup = BeautifulSoup(resp.text, "html.parser")
-        headlines = [a.get_text(strip=True) for a in soup.select("table.fullview-news-outer td a")]
-        return headlines[:n]
-    except Exception as e:
-        print(f"⚠️ Erro ao buscar Finviz para {tkr}: {e}")
+        return [a.get_text(strip=True) for a in soup.select("table.fullview-news-outer td a")][:n]
+    except Exception:
         return []
 
 def headlines(tkr, n=60, sources=None):
@@ -125,7 +127,6 @@ def headlines(tkr, n=60, sources=None):
     if "MarketWatch" in sources: h.extend(news_marketwatch(tkr, n))
     if "Investing" in sources:   h.extend(news_investing(tkr, n))
     if "Finviz" in sources:      h.extend(news_finviz(tkr, n))
-    # Remove duplicados
     seen, uniq = set(), []
     for txt in h:
         if txt not in seen:
@@ -135,27 +136,31 @@ def headlines(tkr, n=60, sources=None):
             break
     return uniq
 
-# Placeholder para classificadores
-def _pipe_finbert(text): return [{"label": "positive", "score": 0.9}]
-def _pipe_multi(text): return [{"label": "4 stars", "score": 0.7}]
-
+# ───────── ANÁLISE DE SENTIMENTO COM FINBERT ─────────
 def _classify(text):
     try:
         lang = detect(text)
     except LangDetectException:
         lang = "unknown"
-    if lang == "en":
-        res = _pipe_finbert(text[:512])[0]
-        lbl, conf = res["label"], res["score"]
-        score = {"positive": 1, "neutral": 0, "negative": -1}.get(lbl, 0)
-    else:
-        res = _pipe_multi(text[:512])[0]
-        lbl, conf = res["label"], res["score"]
-        stars = int(lbl[0])
-        score = (stars - 3) / 2
-    return score, conf
 
-def sentimento_ticker(ticker: str, n_headlines: int = 20, sources=None):
+    if lang != "en" or len(text.split()) < 4:
+        try:
+            text = traduzir_pt_para_en(text)
+        except Exception as e:
+            print(f"⚠️ Tradução falhou: {e}")
+            return 0, 0.0
+
+    try:
+        res = _pipe_finbert(text[:512])[0]
+        label, conf = res["label"].lower(), res["score"]
+        score = {"positive": 1, "neutral": 0, "negative": -1}.get(label, 0)
+        return score, conf
+    except Exception as e:
+        print(f"⚠️ Erro na classificação FinBERT: {e}")
+        return 0, 0.0
+
+
+def sentimento_ticker(ticker, n_headlines=20, sources=None):
     heads = headlines(ticker, n_headlines, sources)
     if not heads:
         return {"ticker": ticker, "sentimento": "indefinido", "headlines": []}
@@ -164,6 +169,10 @@ def sentimento_ticker(ticker: str, n_headlines: int = 20, sources=None):
         sc, cf = _classify(h)
         rows.append({"headline": h, "score": sc, "conf": cf})
     df = pd.DataFrame(rows)
+
+    top_positivas = df[df["score"] > 0].sort_values("conf", ascending=False).head(2)
+    top_negativas = df[df["score"] < 0].sort_values("conf", ascending=False).head(2)
+
     agg = (df["score"] * df["conf"]).sum() / df["conf"].sum()
     if agg > 0.2:
         senti = "positivo"
@@ -178,7 +187,7 @@ def sentimento_ticker(ticker: str, n_headlines: int = 20, sources=None):
         "detalhes": df.sort_values("conf", ascending=False)
     }
 
-# ───────── INTERFACE COM CHECKBOXES ─────────
+# ───────── INTERFACE ─────────
 def top_sentiment_interface(universe, top_k, n_head,
                             yahoo_selected, google_selected,
                             reuters_selected, marketwatch_selected,
@@ -191,20 +200,23 @@ def top_sentiment_interface(universe, top_k, n_head,
     if marketwatch_selected: selected_sources.append("MarketWatch")
     if investing_selected:   selected_sources.append("Investing")
     if finviz_selected:      selected_sources.append("Finviz")
-    
+
     if not selected_sources:
-        print("⚠️ Nenhuma fonte selecionada. Marque pelo menos uma.")
+        print("⚠️ Nenhuma fonte selecionada.")
         return
 
-    print(f"\n🌎 Universo selecionado: {universe.upper()}")
-    print(f"🏆 Top {top_k} | 📰 {n_head} notícias por ativo")
-    print(f"📡 Fontes escolhidas: {', '.join(selected_sources)}")
+    print(f"\n🌎 Universo: {universe.upper()} | 🏆 Top {top_k} | 📰 {n_head} manchetes por ativo")
+    print(f"📡 Fontes: {', '.join(selected_sources)}")
 
     tickers = UNIVERSE_MAP[universe]()
     results = []
 
     for t in tqdm(tickers, total=len(tickers), desc=f"Analisando {universe.upper()}"):
         score = sentimento_ticker(t, n_head, selected_sources)
+
+        resumo = sentimento_ticker(t, n_head, selected_sources)
+        detalhes = resumo.get("detalhes", pd.DataFrame())
+
         if isinstance(score, dict):
             score = score.get("score_ponderado")
         if score is None:
@@ -215,27 +227,25 @@ def top_sentiment_interface(universe, top_k, n_head,
         print("⚠️ Nenhum resultado válido.")
         return
 
-    df = (pd.DataFrame(results)
-          .sort_values("score", ascending=False)
-          .head(top_k))
-    print(f"\n── 🏆 TOP {top_k} SCORES ({universe.upper()}) ──")
-    print(df.to_string(index=False,
-                       formatters={"score": "{:+.3f}".format}))
+    df = pd.DataFrame(results).sort_values("score", ascending=False).head(top_k)
+    df.to_csv(f"sentimento_{universe}.csv", index=False)
+    print(f"\n💾 Resultado exportado para: sentimento_{universe}.csv")
+    print(f"\n🏆 TOP {top_k} ({universe.upper()})")
+    print(df.to_string(index=False, formatters={"score": "{:+.3f}".format}))
 
-universe_widget = widgets.Dropdown(
-    options=["ibov", "sp500", "nasdaq"],
-    value="ibov",
-    description="🌎 Universo:"
-)
+# ───────── WIDGETS ─────────
+universe_widget = widgets.Dropdown(options=["ibov", "sp500", "nasdaq"], value="ibov", description="🌎 Universo:")
 top_k_widget = widgets.IntSlider(value=5, min=1, max=20, step=1, description="🏆 Top K:")
-n_head_widget = widgets.IntSlider(value=100, min=10, max=200, step=10, description="📰 Headlines:")
+n_head_widget = widgets.IntSlider(value=100, min=10, max=200, step=10, description="📰 Manchetes:")
 
-yahoo_checkbox       = widgets.Checkbox(value=True, description="Yahoo Finance")
-google_checkbox      = widgets.Checkbox(value=True, description="Google News")
-reuters_checkbox     = widgets.Checkbox(value=True, description="Reuters")
-marketwatch_checkbox = widgets.Checkbox(value=True, description="MarketWatch")
-investing_checkbox   = widgets.Checkbox(value=True, description="Investing.com")
-finviz_checkbox      = widgets.Checkbox(value=True, description="Finviz")
+checkboxes = [
+    widgets.Checkbox(value=True, description="Yahoo Finance"),
+    widgets.Checkbox(value=True, description="Google News"),
+    widgets.Checkbox(value=True, description="Reuters"),
+    widgets.Checkbox(value=True, description="MarketWatch"),
+    widgets.Checkbox(value=True, description="Investing.com"),
+    widgets.Checkbox(value=True, description="Finviz"),
+]
 
 run_button = widgets.Button(description="🚀 Executar análise")
 
@@ -244,18 +254,11 @@ def on_button_clicked(b):
         universe_widget.value,
         top_k_widget.value,
         n_head_widget.value,
-        yahoo_checkbox.value,
-        google_checkbox.value,
-        reuters_checkbox.value,
-        marketwatch_checkbox.value,
-        investing_checkbox.value,
-        finviz_checkbox.value
+        *[cb.value for cb in checkboxes]
     )
 
 run_button.on_click(on_button_clicked)
 
 display(universe_widget, top_k_widget, n_head_widget,
-        widgets.Label("📡 Escolha as fontes:"),
-        yahoo_checkbox, google_checkbox, reuters_checkbox,
-        marketwatch_checkbox, investing_checkbox, finviz_checkbox,
-        run_button)
+        widgets.Label("📡 Fontes de Notícias:"),
+        *checkboxes, run_button)
