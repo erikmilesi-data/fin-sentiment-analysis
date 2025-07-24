@@ -1,10 +1,10 @@
-# 📊 Analise de Sentimentos para o Mercado de Ações
+# 📊 Análise de Sentimento para o Mercado de Ações
 
-Ferramenta interativa para análise de sentimento de ativos financeiros a partir de múltiplas fontes de notícias. Permite avaliar rapidamente o tom do mercado para ações do Ibovespa, S&P 500 e Nasdaq usando algoritmos de machine learning.
+Ferramenta interativa e automatizada para análise de sentimento de ativos financeiros a partir de múltiplas fontes de notícias. O sistema avalia rapidamente o tom do mercado (positivo, neutro ou negativo) para ações do Ibovespa, S&P 500 e Nasdaq, utilizando algoritmos de inteligência artificial e aprendizado de máquina.
 
 ## 🚀 Funcionalidades
 
-✅ Busca e análise de notícias em:
+✅ Coleta e análise de notícias de múltiplas fontes:
 - Yahoo Finance
 - Google News
 - Reuters
@@ -17,18 +17,21 @@ Ferramenta interativa para análise de sentimento de ativos financeiros a partir
 - Neutro
 - Negativo
 
-✅ Interface interativa em Jupyter Notebook com:
+✅ Tradução automática de manchetes para inglês, garantindo compatibilidade com o modelo FinBERT
+
+✅ Interface gráfica interativa com Jupyter Notebook:
 - 🌎 Seleção do universo (Ibovespa, S&P 500, Nasdaq)
 - 📰 Escolha das fontes de notícias
-- 🏆 Top K resultados
+- 🏆 Definição do Top K ativos com melhor sentimento
+- 💾 Exportação automática dos resultados para `.csv`
+
+---
 
 ## ⚙️ Instalação
 
 Clone o repositório e instale as dependências:
 
 ```bash
-git clone https://github.com/erikmilesi-data/sentiment-analyzer.git
-cd sentiment-analyzer
+git clone https://github.com/erikmilesi-data/fin-sentiment-analysis.git
+cd fin-sentiment-analysis
 pip install -r requirements.txt
-
----
