@@ -1,11 +1,11 @@
-requests
 pandas
+requests
 yfinance
 feedparser
 beautifulsoup4
-langdetect
+lxml
 tqdm
 ipywidgets
-lxml
-html5lib
-notebook
+langdetect
+transformers
+deep-translator
